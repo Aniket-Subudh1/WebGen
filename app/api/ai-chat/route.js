@@ -1,6 +1,5 @@
-
 import { NextResponse } from "next/server";
-import OpenAIService from "@/configs/openai";
+import OpenAIService from "@/configs/ai-service";
 import { connectToDatabase } from "@/configs/mongodb";
 import User from "@/models/User";
 
@@ -35,10 +34,10 @@ export async function POST(req) {
     // Create a basic message from the prompt
     const message = { role: 'user', content: prompt };
     
-    // Use the OpenAI service to generate a response
+    // Use the OpenAI service to generate a response (which now redirects to Gemini)
     const response = await OpenAIService.generateChatResponse([message]);
     
-    // Estimate token usage
+    // Estimate token usage - this is approximate since Gemini doesn't use the same token system
     const promptTokens = prompt.length / 4;
     const responseTokens = response.length / 4;
     const totalTokens = Math.ceil(promptTokens + responseTokens);

@@ -73,13 +73,15 @@ function CodeView() {
       toast.error("You don't have enough tokens to generate code");
       return;
     }
-
+  
     setLoading(true);
     try {
-      const PROMPT = JSON.stringify(messages) + ' ' + Prompt.CODE_GEN_PROMPT;
+      // Get the last user message
+      const userMessage = messages[messages.length - 1].content;
       
+      // Send request to generate code
       const result = await axios.post('/api/gen-ai-code', {
-        prompt: PROMPT,
+        prompt: userMessage,
       });
       
       if (result.data && result.data.files) {
@@ -93,7 +95,7 @@ function CodeView() {
           files: result.data.files,
         });
         
-        // Calculate token usage
+        // Calculate token usage (approximate)
         const tokenUsed = countToken(JSON.stringify(result.data));
         const newTokenAmount = Number(userDetail.token) - Number(tokenUsed);
         
@@ -105,6 +107,22 @@ function CodeView() {
           token: newTokenAmount,
           userId: userDetail._id,
         });
+        
+        // Add AI response to messages
+        const aiResponse = {
+          role: 'ai',
+          content: `I've created a ${result.data.projectTitle} project. ${result.data.explanation}`
+        };
+        
+        setMessages(prev => [...prev, aiResponse]);
+        
+        // Save messages to database
+        await axios.put('/api/workspace/messages', {
+          messages: [...messages, aiResponse],
+          workspaceId: id,
+        });
+      } else {
+        toast.error('Failed to generate code: Invalid response format');
       }
     } catch (error) {
       console.error('Error generating code:', error);
@@ -113,7 +131,6 @@ function CodeView() {
       setLoading(false);
     }
   };
-
   return (
     <div className="relative">
       <div className="bg-[#181818] w-full p-2 border">
