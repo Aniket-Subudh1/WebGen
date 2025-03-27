@@ -3,7 +3,7 @@ import { connectToDatabase } from '@/configs/mongodb';
 import Workspace from '@/models/Workspace';
 import User from '@/models/User';
 
-export async function POST(req) {
+export async function POST(req, { params }) {
   try {
     const { user, messages } = await req.json();
     
@@ -33,7 +33,7 @@ export async function POST(req) {
   }
 }
 
-export async function GET(req) {
+export async function GET(req, { params }) {
   const userId = req.nextUrl.searchParams.get('userId');
   
   if (!userId) {

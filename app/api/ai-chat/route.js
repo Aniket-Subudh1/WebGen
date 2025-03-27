@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import OpenAIService from "@/configs/ai-service";
+import GeminiService from "@/configs/ai-service";
 import { connectToDatabase } from "@/configs/mongodb";
 import User from "@/models/User";
 
 export async function POST(req) {
   try {
-    const { prompt, userId } = await req.json();
+    const { messages, userId } = await req.json();
     
-    if (!prompt || !userId) {
+    if (!messages || !userId) {
       return NextResponse.json(
-        { error: "Invalid request format. Prompt and userId are required." },
+        { error: "Invalid request format. Messages and userId are required." },
         { status: 400 }
       );
     }
@@ -31,16 +31,13 @@ export async function POST(req) {
       );
     }
     
-    // Create a basic message from the prompt
-    const message = { role: 'user', content: prompt };
+    // Pass the full messages array to maintain conversation context
+    const response = await GeminiService.generateChatResponse(messages);
     
-    // Use the OpenAI service to generate a response (which now redirects to Gemini)
-    const response = await OpenAIService.generateChatResponse([message]);
-    
-    // Estimate token usage - this is approximate since Gemini doesn't use the same token system
-    const promptTokens = prompt.length / 4;
-    const responseTokens = response.length / 4;
-    const totalTokens = Math.ceil(promptTokens + responseTokens);
+    // Estimate token usage - approximate since we're using Gemini
+    const promptLength = JSON.stringify(messages).length;
+    const responseLength = response.length;
+    const totalTokens = Math.ceil((promptLength + responseLength) / 4);
     
     // Update user's token count
     const newTokenAmount = Math.max(0, user.token - totalTokens);
@@ -50,8 +47,8 @@ export async function POST(req) {
     return NextResponse.json({
       result: response,
       tokenUsage: {
-        prompt: Math.ceil(promptTokens),
-        completion: Math.ceil(responseTokens),
+        prompt: Math.ceil(promptLength / 4),
+        completion: Math.ceil(responseLength / 4),
         total: totalTokens
       },
       remainingTokens: newTokenAmount

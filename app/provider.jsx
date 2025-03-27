@@ -7,7 +7,6 @@ import { UserDetailContext } from '@/context/UserDetailContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSideBar from '@/components/custom/AppSideBar';
-import { PayPalScriptProvider } from '@paypal/react-paypal-js';
 import { ActionContext } from '@/context/ActionContext';
 import { getFromLocalStorage } from '@/lib/localStorage';
 
@@ -50,30 +49,26 @@ function Provider({ children }) {
       <GoogleOAuthProvider
         clientId={process.env.NEXT_PUBLIC_GOOGLE_AUTH_CLIENT_ID_KEY}
       >
-        <PayPalScriptProvider
-          options={{ clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID }}
-        >
-          <UserDetailContext.Provider value={{ userDetail, setUserDetail }}>
-            <MessagesContext.Provider value={{ messages, setMessages }}>
-              <ActionContext.Provider value={{ action, setAction }}>
-                <NextThemesProvider
-                  attribute="class"
-                  defaultTheme="dark"
-                  enableSystem
-                  disableTransitionOnChange
-                >
-                  <SidebarProvider defaultOpen={false}>
-                    <AppSideBar />
-                    <main className="w-full">
-                      <Header />
-                      {children}
-                    </main>
-                  </SidebarProvider>
-                </NextThemesProvider>
-              </ActionContext.Provider>
-            </MessagesContext.Provider>
-          </UserDetailContext.Provider>
-        </PayPalScriptProvider>
+        <UserDetailContext.Provider value={{ userDetail, setUserDetail }}>
+          <MessagesContext.Provider value={{ messages, setMessages }}>
+            <ActionContext.Provider value={{ action, setAction }}>
+              <NextThemesProvider
+                attribute="class"
+                defaultTheme="dark"
+                enableSystem
+                disableTransitionOnChange
+              >
+                <SidebarProvider defaultOpen={false}>
+                  <AppSideBar />
+                  <main className="w-full">
+                    <Header />
+                    {children}
+                  </main>
+                </SidebarProvider>
+              </NextThemesProvider>
+            </ActionContext.Provider>
+          </MessagesContext.Provider>
+        </UserDetailContext.Provider>
       </GoogleOAuthProvider>
     </div>
   );
