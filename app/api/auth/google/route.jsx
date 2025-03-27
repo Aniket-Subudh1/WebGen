@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/app/configs/mongodb';
-import User from '@/app/models/User';
+import { connectToDatabase } from '@/configs/mongodb';
+import User from '@/models/User';
 
 export async function POST(req) {
   try {

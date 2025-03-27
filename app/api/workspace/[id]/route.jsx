@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/configs/mongodb';
 import Workspace from '@/models/Workspace';
 
-export async function GET(req, { params }) {
-  const { id } = params;
+export async function GET(req, context) {
+  const { id } = context.params;
   
   try {
     await connectToDatabase();
