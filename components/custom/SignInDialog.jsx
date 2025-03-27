@@ -6,45 +6,44 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import Lookup from "@/data/Lookup";
 import { Button } from "../ui/button";
 import { useGoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 import { UserDetailContext } from "@/context/UserDetailContext";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import uuid4 from "uuid4";
+import { useAuth } from "@/hooks/use-auth";
+import { toast } from "sonner";
 
 function SignInDialog({ openDialog, closeDialog }) {
-  const { userDetail, setUserDetail } = useContext(UserDetailContext);
-  const CreateUser = useMutation(api.users.CreateUser);
+  const { login } = useAuth();
 
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
-      console.log(tokenResponse);
-      const userInfo = await axios.get(
-        "https://www.googleapis.com/oauth2/v3/userinfo",
-        { headers: { Authorization: "Bearer " + tokenResponse?.access_token } }
-      );
+      try {
+        const userInfo = await axios.get(
+          "https://www.googleapis.com/oauth2/v3/userinfo",
+          { headers: { Authorization: `Bearer ${tokenResponse?.access_token}` } }
+        );
 
-      console.log(userInfo);
-      const user = userInfo.data;
-      await CreateUser({
-        name: user?.name,
-        email: user?.email,
-        picture: user?.picture,
-        uid: uuid4(),
-      });
-      if (typeof window !== undefined) {
-        localStorage.setItem("user", JSON.stringify(user));
+        const googleUser = userInfo.data;
+        
+        const user = await login(googleUser);
+        
+        closeDialog(false);
+        
+        toast.success(`Welcome, ${user.name}!`);
+      } catch (error) {
+        console.error("Login error:", error);
+        toast.error("Failed to authenticate with Google");
       }
-      setUserDetail(userInfo?.data);
-      closeDialog(false);
     },
-    onError: (errorResponse) => console.log(errorResponse),
+    onError: (errorResponse) => {
+      console.error("Google login error:", errorResponse);
+      toast.error("Google authentication failed");
+    },
   });
+
   return (
     <Dialog open={openDialog} onOpenChange={closeDialog}>
       <DialogContent>
@@ -55,12 +54,12 @@ function SignInDialog({ openDialog, closeDialog }) {
               <h2 className="font-bold text-2xl text-center text-white">
                 {Lookup.SIGNIN_HEADING}
               </h2>
-              <p className="mt-2  text-center">{Lookup.SIGNIN_SUBHEADING}</p>
+              <p className="mt-2 text-center">{Lookup.SIGNIN_SUBHEADING}</p>
               <Button
                 className="bg-blue-500 text-white hover:bg-blue-400 mt-3"
                 onClick={() => googleLogin()}
               >
-                Signin In With Google
+                Sign In With Google
               </Button>
               <p>{Lookup.SIGNIn_AGREEMENT_TEXT}</p>
             </div>

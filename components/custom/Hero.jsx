@@ -6,40 +6,54 @@ import Lookup from '@/data/Lookup';
 import { ArrowRight, Link } from 'lucide-react';
 import React, { useContext, useState } from 'react';
 import SignInDialog from './SignInDialog';
-import { useMutation } from 'convex/react';
-import { api } from '@/convex/_generated/api';
+import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 function Hero() {
-  const [userInput, setUserInput] = useState();
-  const { messages, setMessages } = useContext(MessagesContext);
-  const { userDetail, setUserDetail } = useContext(UserDetailContext);
+  const [userInput, setUserInput] = useState('');
+  const { setMessages } = useContext(MessagesContext);
+  const { userDetail } = useContext(UserDetailContext);
   const [openDialog, setOpenDialog] = useState(false);
-  const CreateWorkspace = useMutation(api.workspace.CreateWorkspace);
   const router = useRouter();
 
   const onGenerate = async (input) => {
-    if (!userDetail?.name) {
+    if (!userDetail?._id) {
       setOpenDialog(true);
       return;
     }
-    if(userDetail?.token < 10) {
-      toast("You don't have enough token to generate code");
-      return
+    
+    if (userDetail.token < 10) {
+      toast.error("You don't have enough tokens to generate code");
+      return;
     }
-    const msg = {
-      role: 'user',
-      content: input,
-    };
-    setMessages(msg);
-
-    const workspaceId = await CreateWorkspace({
-      user: userDetail._id,
-      messages: [msg],
-    });
-    console.log(workspaceId);
-    router.push('/workspace/' + workspaceId);
+    
+    try {
+      // Create a message object
+      const msg = {
+        role: 'user',
+        content: input,
+      };
+      
+      // Set message in context
+      setMessages([msg]);
+      
+      // Create a new workspace
+      const response = await axios.post('/api/workspace', {
+        user: userDetail._id,
+        messages: [msg],
+      });
+      
+      if (response.data && response.data._id) {
+        // Navigate to the new workspace
+        router.push(`/workspace/${response.data._id}`);
+      } else {
+        toast.error('Failed to create workspace');
+      }
+    } catch (error) {
+      console.error('Error generating workspace:', error);
+      toast.error('Something went wrong');
+    }
   };
 
   return (
@@ -57,6 +71,7 @@ function Hero() {
             placeholder={Lookup.INPUT_PLACEHOLDER}
             className="outline-none bg-transparent w-full h-32 max-h-56 resize-none"
             onChange={(event) => setUserInput(event.target.value)}
+            value={userInput}
           />
           {userInput && (
             <ArrowRight

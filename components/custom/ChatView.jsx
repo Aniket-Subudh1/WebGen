@@ -1,12 +1,10 @@
 'use client';
 import { MessagesContext } from '@/context/MessagesContext';
 import { UserDetailContext } from '@/context/UserDetailContext';
-import { api } from '@/convex/_generated/api';
 import Colors from '@/data/Colors';
 import Lookup from '@/data/Lookup';
 import Prompt from '@/data/Prompt';
 import axios from 'axios';
-import { useConvex, useMutation } from 'convex/react';
 import { ArrowRight, Link, Loader2Icon } from 'lucide-react';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
@@ -24,76 +22,96 @@ export const countToken = (inputText) => {
 
 function ChatView() {
   const { id } = useParams();
-  const convex = useConvex();
   const { messages, setMessages } = useContext(MessagesContext);
   const { userDetail, setUserDetail } = useContext(UserDetailContext);
-  const [userInput, setUserInput] = useState();
+  const [userInput, setUserInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const UpdateMessages = useMutation(api.workspace.UpdateMessages);
   const { toggleSidebar } = useSidebar();
-  const UpdateToken = useMutation(api.users.UpdateToken);
 
   useEffect(() => {
-    id && GetWorkspaceData();
+    id && getWorkspaceData();
   }, [id]);
 
   /**
    * Used to Get Workspace data using Workspace ID
    */
-  const GetWorkspaceData = async () => {
-    const result = await convex.query(api.workspace.GetWorkspace, {
-      workspaceId: id,
-    });
-    setMessages(result?.messages);
+  const getWorkspaceData = async () => {
+    try {
+      const result = await axios.get(`/api/workspace/${id}`);
+      if (result.data && result.data.messages) {
+        setMessages(result.data.messages);
+      }
+    } catch (error) {
+      console.error('Error fetching workspace data:', error);
+      toast.error('Failed to load chat history');
+    }
   };
+
   useEffect(() => {
     if (messages?.length > 0) {
       const role = messages[messages?.length - 1].role;
-      if (role == 'user') {
-        GetAiResponse();
+      if (role === 'user') {
+        getAiResponse();
       }
     }
   }, [messages]);
 
-  const GetAiResponse = async () => {
-    // return;
+  const getAiResponse = async () => {
+    if (!userDetail || userDetail.token < 10) {
+      toast.error("You don't have enough tokens to generate a response");
+      return;
+    }
+
     setLoading(true);
-    const PROMPT = JSON.stringify(messages) + Prompt.CHAT_PROMPT;
-    console.log({ PROMPT });
-    const result = await axios.post('/api/ai-chat', {
-      prompt: PROMPT,
-    });
-    console.log(result.data.result);
-    const aiResp = {
-      role: 'ai',
-      content: result.data.result,
-    };
-    setMessages((prev) => [...prev, aiResp]);
-    
-    // update token to database
-
-    await UpdateMessages({
-      messages: [...messages, aiResp],
-      workspaceId: id,
-    });
-    console.log("LEN", countToken(JSON.stringify(aiResp)));
-    const token = Number(userDetail?.token) - Number(countToken(JSON.stringify(aiResp)));
-    setUserDetail(prev=>( {...prev, token: token}))
-    await UpdateToken({
-      token: token,
-      userId: userDetail?._id
-    })
-
-    setLoading(false);
+    try {
+      const PROMPT = JSON.stringify(messages) + Prompt.CHAT_PROMPT;
+      
+      const result = await axios.post('/api/ai-chat', {
+        prompt: PROMPT,
+      });
+      
+      const aiResp = {
+        role: 'ai',
+        content: result.data.result,
+      };
+      
+      // Update messages state with AI response
+      const updatedMessages = [...messages, aiResp];
+      setMessages(updatedMessages);
+      
+      // Save messages to database
+      await axios.put('/api/workspace/messages', {
+        messages: updatedMessages,
+        workspaceId: id,
+      });
+      
+      // Update token count
+      const tokenUsed = countToken(JSON.stringify(aiResp));
+      const newTokenAmount = Number(userDetail.token) - Number(tokenUsed);
+      
+      // Update user token count in state
+      setUserDetail(prev => ({ ...prev, token: newTokenAmount }));
+      
+      // Update token count in database
+      await axios.put('/api/user/token', {
+        token: newTokenAmount,
+        userId: userDetail._id,
+      });
+    } catch (error) {
+      console.error('Error generating AI response:', error);
+      toast.error('Failed to generate AI response');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const onGenerate = (input) => {
-    if(userDetail?.token < 10) {
-      toast("You don't have enough token to generate code");
-      return ;
-
+    if (!userDetail || userDetail.token < 10) {
+      toast.error("You don't have enough tokens to generate code");
+      return;
     }
-    setMessages((prev) => [...prev, { role: 'user', content: input }]);
+    
+    setMessages(prev => [...prev, { role: 'user', content: input }]);
     setUserInput('');
   };
 
@@ -108,9 +126,9 @@ function ChatView() {
               backgroundColor: Colors.CHAT_BACKGROUND,
             }}
           >
-            {msg?.role == 'user' && (
+            {msg?.role === 'user' && userDetail?.picture && (
               <Image
-                src={userDetail?.picture}
+                src={userDetail.picture}
                 alt="userImage"
                 width={35}
                 height={35}
@@ -136,7 +154,7 @@ function ChatView() {
       </div>
 
       {/* Input Section */}
-      <div className="flex gap-2 items-end ">
+      <div className="flex gap-2 items-end">
         {userDetail && (
           <Image
             onClick={toggleSidebar}

@@ -1,43 +1,49 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ThemeProvider as NextThemesProvider } from 'next-themes';
 import Header from '@/components/custom/Header';
 import { MessagesContext } from '@/context/MessagesContext';
 import { UserDetailContext } from '@/context/UserDetailContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import { useConvex } from 'convex/react';
-import { api } from '@/convex/_generated/api';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSideBar from '@/components/custom/AppSideBar';
 import { PayPalScriptProvider } from '@paypal/react-paypal-js';
 import { ActionContext } from '@/context/ActionContext';
-import { useRouter } from 'next/navigation';
+import { getFromLocalStorage } from '@/lib/localStorage';
 
 function Provider({ children }) {
-  const [messages, setMessages] = useState();
-  const [userDetail, setUserDetail] = useState();
-  const [action, setAction] = useState();
-  const router = useRouter();
-  const convex = useConvex();
+  const [messages, setMessages] = useState([]);
+  const [userDetail, setUserDetail] = useState(null);
+  const [action, setAction] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  // Synchronize with localStorage on mount
   useEffect(() => {
-    IsAuthenticated();
+    const checkAuth = async () => {
+      try {
+        const localUser = getFromLocalStorage('user');
+        if (localUser) {
+          // Initialize with local data
+          setUserDetail(localUser);
+        }
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
   }, []);
 
-  const IsAuthenticated = async () => {
-    if (typeof window !== undefined) {
-      const user = JSON.parse(localStorage.getItem('user'));
-      if(!user) {
-        router.push('/')
-        return
-      }
-      // Fetch user from the database
-      const result = await convex.query(api.users.GetUser, {
-        email: user?.email,
-      });
-      setUserDetail(result);
-    }
-  };
+  // Show a simple loading spinner if still initializing
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -45,11 +51,11 @@ function Provider({ children }) {
         clientId={process.env.NEXT_PUBLIC_GOOGLE_AUTH_CLIENT_ID_KEY}
       >
         <PayPalScriptProvider
-          options={{ clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_Id }}
+          options={{ clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID }}
         >
           <UserDetailContext.Provider value={{ userDetail, setUserDetail }}>
             <MessagesContext.Provider value={{ messages, setMessages }}>
-              <ActionContext.Provider value={{action, setAction}}>
+              <ActionContext.Provider value={{ action, setAction }}>
                 <NextThemesProvider
                   attribute="class"
                   defaultTheme="dark"
